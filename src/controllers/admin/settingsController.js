@@ -55,6 +55,13 @@ export const updateSettings = async (req, res) => {
                 updatedFields: Object.keys(req.body)
             });
         }
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('settings:updated', {
+                brand: req.activeBrand,
+                updatedFields: Object.keys(req.body)
+            });
+        }
 
         // Log Activity in background
         activityLogService.log(req, {

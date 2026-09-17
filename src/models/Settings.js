@@ -7,6 +7,10 @@ const settingsSchema = new mongoose.Schema({
         default: 'teasntrees',
         required: true
     },
+    isStoreActive: {
+        type: Boolean,
+        default: true
+    },
     deliveryCharge: {
         type: Number,
         default: 20

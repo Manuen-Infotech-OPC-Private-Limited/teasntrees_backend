@@ -29,7 +29,8 @@ export const getPublicSettings = async (req, res) => {
                 contactEmail: settings.contactEmail,
                 address: settings.address,
                 socialMedia: settings.socialMedia,
-                maxDeliveryDistance: settings.maxDeliveryDistance
+                maxDeliveryDistance: settings.maxDeliveryDistance,
+                isStoreActive: settings.isStoreActive !== false
             }
         });
     } catch (error) {
@@ -37,6 +38,34 @@ export const getPublicSettings = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error fetching settings'
+        });
+    }
+};
+
+// Get status of all brands for customer frontend
+export const getBrandsStatus = async (req, res) => {
+    try {
+        const settingsList = await Settings.find({}, 'brand isStoreActive').lean();
+        const brands = {
+            teasntrees: { isStoreActive: true },
+            littleh: { isStoreActive: true }
+        };
+
+        settingsList.forEach(s => {
+            if (s.brand && brands[s.brand]) {
+                brands[s.brand].isStoreActive = s.isStoreActive !== false;
+            }
+        });
+
+        res.status(200).json({
+            success: true,
+            data: brands
+        });
+    } catch (error) {
+        console.error('Error fetching brands status:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching brands status'
         });
     }
 };
