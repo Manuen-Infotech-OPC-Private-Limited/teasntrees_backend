@@ -346,6 +346,8 @@ const User = mongoose.model('User');
                     customerName: dbCustomer?.name || 'Customer',
                     customerMobile: dbCustomer?.mobile || '',
                     customerImage: dbCustomer?.profileImage || null,
+                customerAltPhone: order.alternatePhone || null,
+                    customerAltPhone: order.alternatePhone || null,
                     deliveryAddress: finalDeliveryLoc.address
                 });
 

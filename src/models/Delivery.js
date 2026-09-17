@@ -63,6 +63,8 @@ const deliverySchema = new mongoose.Schema({
     // with a mobile number rather than Google (most of them) — the app falls
     // back to their initials, it must never invent a face.
     customerImage: { type: String, default: null },
+    // Optional second number the customer gave for this delivery.
+    customerAltPhone: { type: String, default: null },
     deliveryAddress: String, // Plain text address
 
     pickupLocation: {
@@ -177,6 +179,7 @@ deliverySchema.pre('save', async function () {
                 if (!this.customerName) this.customerName = order.customerId?.name || 'Customer';
                 if (!this.customerMobile) this.customerMobile = order.customerId?.mobile || '';
                 if (!this.customerImage) this.customerImage = order.customerId?.profileImage || null;
+                if (!this.customerAltPhone) this.customerAltPhone = order.alternatePhone || null;
                 if (!this.deliveryAddress) this.deliveryAddress = order.deliveryAddress?.address || 'Customer Address';
                 if (!this.brand) this.brand = order.brand;
             }

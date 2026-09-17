@@ -424,7 +424,7 @@ export const clearCart = async (req, res) => {
 export const checkoutCart = async (req, res) => {
     try {
         const userId = req.user.userId;
-        const { deliveryAddress, deliveryInstructions, paymentMethod = 'COD', couponCode } = req.body;
+        const { deliveryAddress, deliveryInstructions, paymentMethod = 'COD', couponCode, alternatePhone } = req.body;
 
         // Reject anything we cannot actually collect money for. Without this a
         // crafted request could place an 'Online' order that no gateway settles
@@ -432,6 +432,11 @@ export const checkoutCart = async (req, res) => {
         const payCheck = assertPaymentMethodAllowed(paymentMethod);
         if (!payCheck.ok) {
             return res.status(400).json({ success: false, message: payCheck.message });
+        }
+
+        const altPhone = (alternatePhone ?? '').toString().trim();
+        if (altPhone && !/^[0-9]{10}$/.test(altPhone)) {
+            return res.status(400).json({ success: false, message: 'Enter a valid 10-digit alternate number, or leave it blank.' });
         }
 
         // Same protection as /customer/orders: a retried checkout whose first
@@ -611,6 +616,7 @@ export const checkoutCart = async (req, res) => {
                 deliveryAddress: finalizedAddress,
                 paymentMethod,
                 specialInstructions: deliveryInstructions,
+                alternatePhone: altPhone || null,
                 estimatedDeliveryTime,
                 status: 'pending'
             };

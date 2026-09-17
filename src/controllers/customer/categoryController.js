@@ -2,6 +2,8 @@
 // Public access to browse categories
 
 import Category from '../../models/Category.js';
+import Product from '../../models/Product.js';
+import { getCurrentMonth } from '../../utils/seasonUtils.js';
 
 // Simple in-memory cache for category listings
 const categoryCache = new Map();
@@ -42,9 +44,28 @@ export const getAllCategories = async (req, res) => {
             .sort({ name: 1 })
             .lean();
 
+        // Attach a live product count per category so the app's menu sheet can
+        // show "Sweets 122" etc. Match the same visibility filter the product
+        // listing uses (available, in-season, this brand) so the numbers agree
+        // with what actually shows up when you tap into a category.
+        const currentMonth = getCurrentMonth();
+        const countMatch = { isAvailable: true, availableMonths: currentMonth };
+        if (req.activeBrand) countMatch.brand = req.activeBrand;
+
+        const counts = await Product.aggregate([
+            { $match: countMatch },
+            { $group: { _id: '$category', count: { $sum: 1 } } }
+        ]);
+        const countMap = new Map(counts.map(c => [String(c._id), c.count]));
+
+        const data = categories.map(c => ({
+            ...c,
+            productCount: countMap.get(String(c._id)) || 0
+        }));
+
         const responseData = {
             success: true,
-            data: categories
+            data
         };
 
         // Cache the result

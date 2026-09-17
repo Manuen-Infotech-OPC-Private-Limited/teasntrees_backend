@@ -177,6 +177,11 @@ const orderSchema = new mongoose.Schema(
         review: String,
         specialInstructions: String,
 
+        // An optional second number to reach for THIS delivery — e.g. ordering
+        // to a parent's house, or a building gate. Distinct from the account
+        // mobile; the rider gets it alongside the primary.
+        alternatePhone: { type: String, default: null },
+
         estimatedDeliveryTime: Date,
 
         confirmedAt: Date,

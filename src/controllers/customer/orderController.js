@@ -29,7 +29,7 @@ const MAX_ITEM_QUANTITY = 50;
 
 export const createOrder = async (req, res) => {
     try {
-        const { items, deliveryAddress, deliveryInstructions, paymentMethod = 'COD', couponCode, location } = req.body;
+        const { items, deliveryAddress, deliveryInstructions, paymentMethod = 'COD', couponCode, location, alternatePhone } = req.body;
 
         // Reject anything we cannot actually collect money for. Without this a
         // crafted request could place an 'Online' order that no gateway settles
@@ -37,6 +37,13 @@ export const createOrder = async (req, res) => {
         const payCheck = assertPaymentMethodAllowed(paymentMethod);
         if (!payCheck.ok) {
             return res.status(400).json({ success: false, message: payCheck.message });
+        }
+
+        // Optional alternate contact number. Accept blank; if given, it must be
+        // a real 10-digit number so a rider isn't handed garbage to dial.
+        const altPhone = (alternatePhone ?? '').toString().trim();
+        if (altPhone && !/^[0-9]{10}$/.test(altPhone)) {
+            return res.status(400).json({ success: false, message: 'Enter a valid 10-digit alternate number, or leave it blank.' });
         }
         const customerId = req.user.userId;
 
@@ -331,6 +338,7 @@ export const createOrder = async (req, res) => {
                 deliveryAddress: finalDeliveryAddress,
                 paymentMethod,
                 specialInstructions: deliveryInstructions,
+                alternatePhone: altPhone || null,
                 status: 'pending'
             });
         }
