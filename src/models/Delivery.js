@@ -391,7 +391,7 @@ deliverySchema.post('findOneAndUpdate', async function (delivery) {
 
             if (order.brand && !delivery.pickupLocation?.address) {
                 await mongoose.model('Delivery').findByIdAndUpdate(delivery._id, {
-                    'pickupLocation.address': order.brand === 'littleh' ? 'LittleH Outlet' : 'Teas N Trees Outlet'
+                    'pickupLocation.address': order.brand === 'littleh' ? 'Cream N Crust Outlet' : 'Teas N Trees Outlet'
                 });
             }
 

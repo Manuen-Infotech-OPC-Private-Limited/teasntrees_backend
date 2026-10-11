@@ -18,7 +18,7 @@ export const brandGuard = (req, res, next) => {
     if (userBrand && activeBrand && userBrand !== activeBrand) {
         return res.status(403).json({
             success: false,
-            message: `Access denied. Your account is assigned to ${userBrand === 'teasntrees' ? 'Teas N Trees' : 'LittleH'}. Please use the correct dashboard.`
+            message: `Access denied. Your account is assigned to ${userBrand === 'teasntrees' ? 'Teas N Trees' : 'Cream N Crust'}. Please use the correct dashboard.`
         });
     }
 

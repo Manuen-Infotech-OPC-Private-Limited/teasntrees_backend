@@ -73,7 +73,7 @@ export const validateCoupon = async (req, res) => {
         if (coupon.brand && brand && coupon.brand !== brand) {
             return res.status(400).json({
                 success: false,
-                message: `This coupon is only valid for ${coupon.brand} orders`
+                message: `This coupon is only valid for ${coupon.brand === 'littleh' ? 'Cream N Crust' : 'Teas N Trees'} orders`
             });
         }
 

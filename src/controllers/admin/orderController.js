@@ -148,7 +148,7 @@ export const updateOrderStatus = async (req, res) => {
             const coords = order.deliveryAddress?.location?.coordinates;
             if (coords && coords.length === 2) {
                 const BRAND_OUTLETS = {
-                    littleh: { lat: 16.3090654, lng: 80.4309655, name: 'LittleH Bakery (Amaravathi Road)' },
+                    littleh: { lat: 16.3090654, lng: 80.4309655, name: 'Cream N Crust (Amaravathi Road)' },
                     teasntrees: { lat: 16.314207, lng: 80.4187407, name: 'Teas N Trees (Lakshmipuram)' }
                 };
                 const OUTLET = BRAND_OUTLETS[order.brand] || BRAND_OUTLETS.teasntrees;

@@ -284,7 +284,7 @@ const firebaseLogin = async (req, res) => {
             if (user.brand && user.brand !== req.activeBrand) {
                 return res.status(403).json({
                     success: false,
-                    message: `This account is registered with ${user.brand === 'teasntrees' ? 'Teas N Trees' : 'LittleH'}. Please log in through the correct portal.`
+                    message: `This account is registered with ${user.brand === 'teasntrees' ? 'Teas N Trees' : 'Cream N Crust'}. Please log in through the correct portal.`
                 });
             }
 
