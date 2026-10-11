@@ -155,6 +155,11 @@ riderAssignmentService.setIo(io);
 import { deliveryWatchdogService } from './services/deliveryWatchdogService.js';
 deliveryWatchdogService.initialize(io);
 
+// Flags, then a day later cancels, orders that nobody ever finished — the
+// watchdog above only alerts; it never ends an order.
+import { staleOrderService } from './services/staleOrderService.js';
+staleOrderService.initialize(io);
+
 const socketService = new SocketService(io);
 app.set('io', io);
 app.set('socketService', socketService);

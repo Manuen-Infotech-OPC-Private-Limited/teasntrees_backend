@@ -48,6 +48,14 @@ const orderSchema = new mongoose.Schema(
             default: null
         },
 
+        // Set by staleOrderService when the order has had no activity for a
+        // day; a day after that, still untouched, it is cancelled. Written
+        // without bumping updatedAt, so the flag itself isn't "activity".
+        staleFlaggedAt: {
+            type: Date,
+            default: null
+        },
+
         outletId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Outlet'
