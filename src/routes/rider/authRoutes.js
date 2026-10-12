@@ -10,7 +10,8 @@ import {
     getDocument,
     updateRiderDocument,
     refreshRiderToken,
-    resetPin
+    resetPin,
+    deleteAccount
 } from '../../controllers/rider/authController.js';
 import { riderAuth, isApprovedRider } from '../../middlewares/riderAuth.js';
 import multer from 'multer';
@@ -55,5 +56,8 @@ router.get('/documents/:filename', riderAuth, getDocument);
 
 // Re-upload a single document from the profile screen
 router.post('/documents', riderAuth, upload.single('file'), updateRiderDocument);
+
+// In-app account deletion: deactivates and anonymises the rider
+router.delete('/account', riderAuth, deleteAccount);
 
 export default router;

@@ -2,6 +2,7 @@
 // Role: 'customer' (auto-assigned)
 // App: Customer App
 
+import { deleteCustomerAccount, DeletionBlockedError } from '../../services/accountDeletionService.js';
 import User from '../../models/User.js';
 import Customer from '../../models/Customer.js';
 import RefreshToken from '../../models/RefreshToken.js';
@@ -598,7 +599,25 @@ const googleLogin = async (req, res) => {
     }
 };
 
+// Delete my account (deactivate + anonymise; see accountDeletionService)
+const deleteAccount = async (req, res) => {
+    try {
+        const deleted = await deleteCustomerAccount(req.user.userId);
+        if (!deleted) {
+            return res.status(404).json({ success: false, message: 'Account not found' });
+        }
+        res.status(200).json({ success: true, message: 'Your account has been deleted.' });
+    } catch (error) {
+        if (error instanceof DeletionBlockedError) {
+            return res.status(409).json({ success: false, message: error.message });
+        }
+        logger.error('Error deleting customer account', { error: error.message });
+        return res.status(500).json({ success: false, message: 'Could not delete your account. Please try again.' });
+    }
+};
+
 export {
+    deleteAccount,
     completeProfile,
     refreshAccessToken,
     logout,

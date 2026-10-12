@@ -115,6 +115,13 @@ const userSchema = new mongoose.Schema({
         select: false
     },
 
+    // Set when the person deleted their own account in the app: the record is
+    // deactivated and anonymised, not removed (services/accountDeletionService.js).
+    deletedAt: {
+        type: Date,
+        default: null
+    },
+
     // For Riders: Linked Manager
     managerId: {
         type: mongoose.Schema.Types.ObjectId,

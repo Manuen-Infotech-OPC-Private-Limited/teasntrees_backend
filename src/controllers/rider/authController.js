@@ -13,6 +13,7 @@ import { verifyFirebaseToken } from '../../services/firebaseAuth.js';
 import { generateToken, generateRefreshToken } from '../../utils/jwtHelper.js';
 import RefreshToken from '../../models/RefreshToken.js';
 import { notificationService } from '../../services/notificationService.js';
+import { deleteRiderAccount, DeletionBlockedError } from '../../services/accountDeletionService.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -909,6 +910,48 @@ export const updateRiderDocument = async (req, res) => {
     } catch (error) {
         logger.error('updateRiderDocument error', error);
         res.status(500).json({ success: false, message: 'Could not update the document' });
+    }
+};
+
+/* ======================================================
+   DELETE MY ACCOUNT
+
+   Deactivates and anonymises the rider (see accountDeletionService). Refused
+   mid-delivery or with earnings still owed. The team is told, because a rider
+   disappearing from the roster is something they need to know about.
+====================================================== */
+export const deleteAccount = async (req, res) => {
+    try {
+        const deleted = await deleteRiderAccount(req.user.userId);
+        if (!deleted) {
+            return res.status(404).json({ success: false, message: 'Rider not found' });
+        }
+
+        try {
+            const socketService = req.app.get('socketService');
+            for (const role of ['admin', 'manager']) {
+                socketService?.notifyRole(role, SOCKET_EVENTS.RIDER_STATUS_UPDATED, {
+                    riderId: deleted.id,
+                    status: 'deleted',
+                    name: deleted.name
+                });
+            }
+            await notificationService.notifyAdmins(User, {
+                title: 'Rider deleted their account',
+                body: `${deleted.name || 'A rider'} (${deleted.mobile}) deleted their rider account.`,
+                data: { type: 'rider_account_deleted', riderId: String(deleted.id) }
+            });
+        } catch (notifyError) {
+            logger.warn('Account deletion: could not notify admins', { error: notifyError.message });
+        }
+
+        res.json({ success: true, message: 'Your account has been deleted.' });
+    } catch (error) {
+        if (error instanceof DeletionBlockedError) {
+            return res.status(409).json({ success: false, message: error.message });
+        }
+        logger.error('Rider account deletion error:', error);
+        res.status(500).json({ success: false, message: 'Could not delete your account. Please try again.' });
     }
 };
 
