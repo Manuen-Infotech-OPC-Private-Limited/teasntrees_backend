@@ -33,6 +33,9 @@ jobs:
       MONGO_URI: mongodb://127.0.0.1:27017/ci
       JWT_SECRET: ci-only-not-a-secret
       ENABLE_BACKGROUND_JOBS: 'false'
+      # Placeholders: the Razorpay client refuses to construct without them.
+      RAZORPAY_KEY_ID: rzp_test_ci
+      RAZORPAY_KEY_SECRET: ci-only-not-a-secret
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
