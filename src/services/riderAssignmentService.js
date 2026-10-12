@@ -13,7 +13,7 @@ const generateOtp = () => String(crypto.randomInt(1000, 10000));
 
 const BRAND_OUTLETS = {
     littleh: {
-        name: 'LittleH Bakery (Amaravathi Road)',
+        name: 'Cream N Crust (Amaravathi Road)',
         coordinates: [80.4309655, 16.3090654], // [lng, lat]
         lat: 16.3090654,
         lng: 80.4309655
@@ -312,7 +312,7 @@ const User = mongoose.model('User');
 
                 // FOOLPROOF COORDINATE & ADDRESS POPULATION
                 const BRAND_LOCS = {
-                    littleh: { lng: 80.4309655, lat: 16.3090654, name: 'LittleH Bakery (Amaravathi Road)' },
+                    littleh: { lng: 80.4309655, lat: 16.3090654, name: 'Cream N Crust (Amaravathi Road)' },
                     teasntrees: { lng: 80.4187407, lat: 16.314207, name: 'Teas N Trees (Lakshmipuram)' }
                 };
                 const defLoc = BRAND_LOCS[order.brand] || BRAND_LOCS.teasntrees;

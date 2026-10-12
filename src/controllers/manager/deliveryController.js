@@ -82,7 +82,7 @@ export const getDeliveries = async (req, res) => {
 
             pickupLocation: d.pickupLocation?.address ? d.pickupLocation : {
                 ...d.pickupLocation,
-                address: d.brand === 'littleh' ? 'LittleH Bakery (Amaravathi Road)' : 'Teas N Trees (Lakshmipuram)'
+                address: d.brand === 'littleh' ? 'Cream N Crust (Amaravathi Road)' : 'Teas N Trees (Lakshmipuram)'
             },
             deliveryLocation: d.deliveryLocation?.address ? d.deliveryLocation : {
                 ...d.deliveryLocation,
