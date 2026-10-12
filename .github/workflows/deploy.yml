@@ -1,6 +1,7 @@
 name: Deploy Backend
 
-# Deploys to the Windows VM on every push to main.
+# Checks the code, then deploys to the Windows VM, on every push to main.
+# The deploy is skipped when the check fails.
 # Requires repo secrets (Settings -> Secrets and variables -> Actions):
 #   VM_HOST     = 20.246.72.93
 #   VM_USER     = tntadmin
@@ -17,7 +18,50 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  # Nothing reaches production unless the code parses and the server boots and
+  # answers against a real (throwaway) MongoDB.
+  check:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+    env:
+      NODE_ENV: test
+      PORT: 5000
+      MONGO_URI: mongodb://127.0.0.1:27017/ci
+      JWT_SECRET: ci-only-not-a-secret
+      ENABLE_BACKGROUND_JOBS: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Every source file parses
+        run: find src scripts -name '*.js' -o -name '*.mjs' | xargs -n1 node --check
+      - name: Server boots and answers
+        run: |
+          node src/server.js > server.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null http://127.0.0.1:5000/api/teasntrees/customer/categories && break
+            sleep 1
+          done
+          expect() { code=$(curl -s -o /dev/null -w '%{http_code}' -X "$1" -H 'Content-Type: application/json' -d '{}' "http://127.0.0.1:5000/api$2"); echo "$1 $2 -> $code (want $3)"; [ "$code" = "$3" ]; }
+          expect GET    /teasntrees/customer/categories 200
+          expect GET    /littleh/customer/categories    200
+          expect POST   /rider/auth/login               400
+          expect POST   /rider/auth/reset-pin           400
+          expect DELETE /customer/auth/account          401
+          expect DELETE /rider/auth/account             401
+      - name: Server log (on failure)
+        if: failure()
+        run: tail -n 80 server.log
+
   deploy:
+    needs: check
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to Windows VM via SSH
