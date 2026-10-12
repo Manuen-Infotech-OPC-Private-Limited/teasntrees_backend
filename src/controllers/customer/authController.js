@@ -433,7 +433,7 @@ const firebaseLogin = async (req, res) => {
 // Google-based login/signup
 const googleLogin = async (req, res) => {
     try {
-        const { idToken, email, name, photoURL } = req.body;
+        const { idToken, name, photoURL } = req.body;
 
         if (!idToken) {
             return res.status(400).json({
@@ -442,15 +442,22 @@ const googleLogin = async (req, res) => {
             });
         }
 
+        // 1. Verify the Firebase token
+        const decoded = await verifyFirebaseToken(idToken);
+
+        // The email comes from the verified token, never from the request body.
+        // It used to be read from the body, so anyone holding ANY valid Firebase
+        // token (their own phone sign-in, say) could name someone else's email
+        // and be handed that customer's account. This also makes the endpoint
+        // serve Sign in with Apple, whose Firebase token carries an email too
+        // (possibly Apple's private relay address).
+        const email = decoded.email;
         if (!email) {
             return res.status(400).json({
                 success: false,
-                message: 'Email is required for Google login'
+                message: 'This sign-in did not share an email address. Please try another way to sign in.'
             });
         }
-
-        // 1. Verify the Firebase token
-        const decoded = await verifyFirebaseToken(idToken);
 
         // 2. Find or create the user by email
         // Use Customer discriminator so Customer.findById works in other controllers
