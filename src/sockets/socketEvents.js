@@ -39,6 +39,7 @@ export const SOCKET_EVENTS = {
     RIDER_ONLINE: 'rider:online',
     RIDER_OFFLINE: 'rider:offline',
     RIDER_STATUS_UPDATED: 'rider:status-updated',
+    RIDER_PIN_RESET: 'rider:pin-reset',
 
     // Rider assignment events (production-ready)
     RIDER_ASSIGNMENT_STARTED: 'rider:assignment-started',

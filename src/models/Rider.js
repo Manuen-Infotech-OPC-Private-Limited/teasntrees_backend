@@ -58,6 +58,12 @@ const riderSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+
+    // Self-service PIN resets (POST /rider/auth/reset-pin). Kept on the rider
+    // so the admin panel can show "PIN reset on <date>" without a separate
+    // lookup — the live socket event alone is missed by anyone not online.
+    pinResetAt: { type: Date, default: null },
+    pinResetCount: { type: Number, default: 0 },
     lockUntil: {
         type: Date,
         default: null,

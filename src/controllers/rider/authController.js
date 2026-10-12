@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import Rider from '../../models/Rider.js';
 import User from '../../models/User.js';
 import { riderMetricsService } from "../../services/riderMetricsService.js";
-import { SOCKET_ROOMS } from "../../sockets/socketEvents.js";
+import { SOCKET_ROOMS, SOCKET_EVENTS } from "../../sockets/socketEvents.js";
 import { uploadService } from '../../services/storage/upload.service.js';
 import logger from '../../config/logger.js';
 import { riderAssignmentService } from '../../services/riderAssignmentService.js';
@@ -12,6 +12,7 @@ import activityLogService from '../../services/activityLogService.js';
 import { verifyFirebaseToken } from '../../services/firebaseAuth.js';
 import { generateToken, generateRefreshToken } from '../../utils/jwtHelper.js';
 import RefreshToken from '../../models/RefreshToken.js';
+import { notificationService } from '../../services/notificationService.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -569,6 +570,36 @@ export const firebaseLogin = async (req, res) => {
     }
 };
 
+// What a rider gets back once signed in (PIN login and PIN reset).
+// Never echo the PIN back — it's a hash now, and returning it to the client
+// served no purpose but to leak the credential.
+const signedInRider = (rider) => ({
+    id: rider._id,
+    readableId: rider.readableId,
+    name: rider.name,
+    mobile: rider.mobile,
+    email: rider.email,
+    role: 'rider',
+    isApproved: rider.isApproved,
+    isOnline: rider.isOnline,
+    isProfileComplete: rider.isProfileComplete || false,
+    totalDeliveries: rider.totalDeliveries,
+    totalEarnings: rider.totalEarnings,
+    averageRating: rider.averageRating,
+    vehicleType: rider.vehicleType,
+    vehicleNumber: rider.vehicleNumber,
+    vehicleModel: rider.vehicleModel,
+    licenseNumber: rider.licenseNumber,
+    licenseExpiryDate: rider.licenseExpiryDate,
+    licensePhoto: rider.licensePhoto,
+    aadharNumber: rider.aadharNumber,
+    aadharPhoto: rider.aadharPhoto,
+    emergencyContact: rider.emergencyContact,
+    bankAccountNumber: rider.bankAccountNumber,
+    ifscCode: rider.ifscCode,
+    accountHolderName: rider.accountHolderName
+});
+
 // Rider Mobile & PIN Login (Bypasses Firebase for quick verification/testing/onboarding fallback)
 export const loginRider = async (req, res) => {
     try {
@@ -636,38 +667,158 @@ export const loginRider = async (req, res) => {
             message: 'Logged in successfully',
             token,
             refreshToken,
-            rider: {
-                id: rider._id,
-                readableId: rider.readableId,
-                name: rider.name,
-                mobile: rider.mobile,
-                email: rider.email,
-                role: 'rider',
-                isApproved: rider.isApproved,
-                isOnline: rider.isOnline,
-                isProfileComplete: rider.isProfileComplete || false,
-                // Never echo the PIN back — it's a hash now, and returning it
-                // to the client served no purpose but to leak the credential.
-                totalDeliveries: rider.totalDeliveries,
-                totalEarnings: rider.totalEarnings,
-                averageRating: rider.averageRating,
-                vehicleType: rider.vehicleType,
-                vehicleNumber: rider.vehicleNumber,
-                vehicleModel: rider.vehicleModel,
-                licenseNumber: rider.licenseNumber,
-                licenseExpiryDate: rider.licenseExpiryDate,
-                licensePhoto: rider.licensePhoto,
-                aadharNumber: rider.aadharNumber,
-                aadharPhoto: rider.aadharPhoto,
-                emergencyContact: rider.emergencyContact,
-                bankAccountNumber: rider.bankAccountNumber,
-                ifscCode: rider.ifscCode,
-                accountHolderName: rider.accountHolderName
-            }
+            rider: signedInRider(rider)
         });
     } catch (error) {
         logger.error('Rider login error:', error);
         res.status(500).json({ success: false, message: 'Server error during login' });
+    }
+};
+
+/* ======================================================
+   SELF-SERVICE PIN RESET
+
+   PINs are bcrypt-hashed, so a forgotten one cannot be looked up, only
+   replaced. The rider proves they hold the registered phone with a Firebase
+   SMS OTP (the app sends the resulting ID token), picks a new PIN, and is
+   signed in. Every other session is ended, and admins and managers are told —
+   on the rider record, over the socket and by push — so a reset nobody
+   expected does not go unnoticed.
+====================================================== */
+
+// A PIN anyone would try first is no PIN.
+const WEAK_PINS = new Set(['1234', '4321', '0123', '2345', '3456', '4567', '5678', '6789', '9876']);
+const isWeakPin = (pin) => /^(\d)\1{3}$/.test(pin) || WEAK_PINS.has(pin);
+
+// How long after the OTP was verified the token may still be used for a reset.
+const RESET_TOKEN_MAX_AGE_SECONDS = 10 * 60;
+
+export const resetPin = async (req, res) => {
+    try {
+        const { idToken } = req.body;
+        const newPin = String(req.body.newPin ?? '');
+
+        if (!idToken) {
+            return res.status(400).json({ success: false, message: 'Phone verification is required' });
+        }
+        if (!/^\d{4}$/.test(newPin)) {
+            return res.status(400).json({ success: false, message: 'Your PIN must be exactly 4 digits' });
+        }
+        if (isWeakPin(newPin)) {
+            return res.status(400).json({
+                success: false,
+                message: 'That PIN is too easy to guess. Please choose a different one.'
+            });
+        }
+
+        let decoded;
+        try {
+            decoded = await verifyFirebaseToken(idToken);
+        } catch {
+            return res.status(401).json({
+                success: false,
+                message: 'We could not verify your number. Please request a new code.'
+            });
+        }
+
+        // Only a phone sign-in proves possession of the number, and only a
+        // fresh one: an ID token is good for an hour and refreshes silently, so
+        // without the age check an old sign-in left on a handed-down phone
+        // could reset the PIN long after the OTP was typed.
+        const authAge = decoded.auth_time ? Date.now() / 1000 - decoded.auth_time : 0;
+        if (!decoded.phone_number || authAge > RESET_TOKEN_MAX_AGE_SECONDS) {
+            return res.status(401).json({
+                success: false,
+                message: 'Your verification has expired. Please request a new code.'
+            });
+        }
+
+        const mobile = decoded.phone_number.replace(/\D/g, '').slice(-10);
+        const rider = await Rider.findOne({ mobile });
+
+        // The caller has proved they own this number, so saying there is no
+        // rider on it gives away nothing they could not already find out.
+        if (!rider) {
+            return res.status(404).json({
+                success: false,
+                message: 'There is no rider account on this number. Tap "Join the crew" to register.'
+            });
+        }
+        if (rider.isActive === false) {
+            return res.status(403).json({
+                success: false,
+                message: 'This account has been deactivated. Please contact the store.'
+            });
+        }
+
+        const now = new Date();
+        const updated = await Rider.findByIdAndUpdate(
+            rider._id,
+            {
+                $set: { verificationPin: await bcrypt.hash(newPin, 10), pinResetAt: now },
+                $inc: { pinResetCount: 1 }
+            },
+            { new: true }
+        );
+
+        // Whoever knew the old PIN — or holds a phone still signed in with it —
+        // is signed out. (An access token already issued lives out its hour.)
+        await RefreshToken.updateMany(
+            { user: rider._id, isRevoked: false },
+            { $set: { isRevoked: true, revokedAt: now } }
+        );
+
+        const token = generateToken({ userId: rider._id, role: 'rider' });
+        const refreshToken = generateRefreshToken();
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 90);
+        await RefreshToken.create({
+            token: refreshToken,
+            user: rider._id,
+            expiresAt,
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+        });
+
+        logger.info('Rider reset their PIN', { riderId: rider._id, resetCount: updated.pinResetCount });
+
+        // Telling the team must never fail the reset the rider has just done.
+        try {
+            const payload = {
+                riderId: rider._id,
+                readableId: rider.readableId,
+                name: rider.name,
+                mobile: rider.mobile,
+                pinResetAt: now,
+                pinResetCount: updated.pinResetCount
+            };
+            const socketService = req.app.get('socketService');
+            if (socketService) {
+                for (const role of ['admin', 'manager']) {
+                    socketService.notifyRole(role, SOCKET_EVENTS.RIDER_PIN_RESET, payload);
+                    // The panels already refresh their rider list on this one.
+                    socketService.notifyRole(role, SOCKET_EVENTS.RIDER_STATUS_UPDATED, payload);
+                }
+            }
+            await notificationService.notifyAdmins(User, {
+                title: 'Rider reset their PIN',
+                body: `${rider.name || 'A rider'} (${rider.mobile}) reset their login PIN.`,
+                data: { type: 'rider_pin_reset', riderId: String(rider._id) }
+            });
+        } catch (notifyError) {
+            logger.warn('PIN reset: could not notify admins', { error: notifyError.message });
+        }
+
+        res.json({
+            success: true,
+            message: 'Your PIN has been changed.',
+            token,
+            refreshToken,
+            rider: signedInRider(updated)
+        });
+    } catch (error) {
+        logger.error('Rider PIN reset error:', error);
+        res.status(500).json({ success: false, message: 'Could not reset your PIN. Please try again.' });
     }
 };
 
