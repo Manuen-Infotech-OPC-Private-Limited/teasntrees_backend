@@ -46,6 +46,22 @@ export const pinLimiter = rateLimit({
     legacyHeaders: false,
 });
 
+/// Rider self-service PIN reset. Each call has already cost an SMS OTP, which
+/// Firebase rate-limits on its own, so this only stops someone hammering the
+/// endpoint with junk tokens.
+export const pinResetLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: isDev ? 100000 : 5,
+    keyGenerator: (req) => ipKeyGenerator(req.ip),
+    message: {
+        success: false,
+        message: 'Too many PIN reset attempts. Please wait 15 minutes and try again.'
+    },
+    handler: onLimitReached('PinResetLimiter'),
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
 // Moderate rate limit for general API routes
 export const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
