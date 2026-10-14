@@ -13,7 +13,14 @@ name: Uptime
 on:
   schedule:
     - cron: '*/10 * * * *'
-  workflow_dispatch: {}
+  # Run by hand with "test_alert" ticked to send the email once, checking
+  # the mail settings work.
+  workflow_dispatch:
+    inputs:
+      test_alert:
+        description: 'Send a test alert email'
+        type: boolean
+        default: false
 
 jobs:
   check:
@@ -34,6 +41,9 @@ jobs:
             done
             [ -z "$ok" ] && down="$down $url (last answer: ${code:-none})"
           done
+          if [ "${{ inputs.test_alert }}" = "true" ]; then
+            down=" (TEST ALERT: nothing is actually down)$down"
+          fi
           echo "down=$down" >> "$GITHUB_OUTPUT"
           [ -z "$down" ] || { echo "DOWN:$down"; exit 1; }
       - name: Email the alert
