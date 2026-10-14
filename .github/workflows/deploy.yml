@@ -66,6 +66,7 @@ jobs:
           expect POST   /rider/auth/reset-pin           400
           expect DELETE /customer/auth/account          401
           expect DELETE /rider/auth/account             401
+          expect GET    /teasntrees/admin/orders?stale=true 401
       - name: Server log (on failure)
         if: failure()
         run: tail -n 80 server.log

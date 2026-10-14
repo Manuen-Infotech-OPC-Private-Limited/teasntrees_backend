@@ -21,6 +21,12 @@ export const getAllOrders = async (req, res) => {
 
         const query = {};
         if (status) query.status = status;
+        // "Needs attention": orders the stale-order job has flagged and that are
+        // still open (services/staleOrderService.js cancels them 24h later).
+        if (req.query.stale === 'true') {
+            query.staleFlaggedAt = { $ne: null };
+            query.status = { $nin: ['delivered', 'cancelled'] };
+        }
         if (customerId) query.customerId = customerId;
         if (brand) query.brand = brand;
 
