@@ -15,7 +15,14 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch: {}
+  # Rollback: Actions -> Deploy Backend -> Run workflow, and give the commit to
+  # go back to. Left empty it deploys the latest main.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Commit to deploy (empty = latest main)'
+        required: false
+        default: ''
 
 jobs:
   # Nothing reaches production unless the code parses and the server boots and
@@ -66,7 +73,12 @@ jobs:
   deploy:
     needs: check
     runs-on: ubuntu-latest
+    env:
+      REF: ${{ github.event.inputs.ref }}
     steps:
+      - name: Only a commit hash may be deployed by hand
+        if: ${{ github.event.inputs.ref != '' && github.event.inputs.ref != null }}
+        run: echo "$REF" | grep -Eq '^[0-9a-f]{7,40}$' || { echo "ref must be a commit hash"; exit 1; }
       - name: Deploy to Windows VM via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -78,4 +90,6 @@ jobs:
           # OpenSSH's default shell. deploy.ps1 lives on the VM (outside the
           # repo) and does git fetch+reset -> npm install -> pm2 restart ->
           # nginx reload.
-          script: powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\tntadmin\deploy.ps1
+          # deploy.ps1 checks the API answers after restarting and puts the
+          # previous version back if it does not.
+          script: powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\tntadmin\deploy.ps1 -Ref ${{ github.event.inputs.ref || 'origin/main' }}

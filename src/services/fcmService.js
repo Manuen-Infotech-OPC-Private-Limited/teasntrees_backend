@@ -1,5 +1,6 @@
 import admin from '../config/firebase.js';
 import logger from '../config/logger.js';
+import { isDeadTokenError, forgetDeadTokens, deadTokensIn } from './deadTokens.js';
 
 /**
  * FCM Service
@@ -33,10 +34,10 @@ export const fcmService = {
             logger.info(`FCM: Successfully sent message to token: ${token}. Response: ${response}`);
             return response;
         } catch (error) {
-            logger.error(`FCM: Error sending message: ${error.message}`);
-            if (error.code === 'messaging/registration-token-not-registered') {
-                logger.warn('FCM: Token is no longer valid. Should be removed from database.');
-                // Note: Token cleanup logic could be added here or in the caller
+            if (isDeadTokenError(error)) {
+                await forgetDeadTokens([token]);
+            } else {
+                logger.error(`FCM: Error sending message: ${error.message}`);
             }
             return null;
         }
@@ -62,6 +63,7 @@ export const fcmService = {
 
             const response = await admin.messaging().sendEachForMulticast(message);
             logger.info(`FCM: Multicast sent. Success: ${response.successCount}, Failure: ${response.failureCount}`);
+            await forgetDeadTokens(deadTokensIn(response, validTokens));
             return response;
         } catch (error) {
             logger.error(`FCM: Multicast Error: ${error.message}`);

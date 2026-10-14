@@ -1,5 +1,6 @@
 import admin from '../config/firebase.js';
 import logger from '../config/logger.js';
+import { isDeadTokenError, forgetDeadTokens, deadTokensIn } from './deadTokens.js';
 
 /**
  * Notification Service
@@ -47,7 +48,11 @@ class NotificationService {
             logger.info(`Push notification sent to ${user.name}: ${response}`);
             return true;
         } catch (error) {
-            logger.error('Push Notification Error:', error.message);
+            if (isDeadTokenError(error)) {
+                await forgetDeadTokens([user.fcmToken]);
+            } else {
+                logger.error('Push Notification Error:', error.message);
+            }
             return false;
         }
     }
@@ -79,6 +84,7 @@ class NotificationService {
 
             const response = await admin.messaging().sendEachForMulticast(message);
             logger.info(`Batch push completed: ${response.successCount} success, ${response.failureCount} failure`);
+            await forgetDeadTokens(deadTokensIn(response, tokens));
             return response;
         } catch (error) {
             logger.error('Batch Push Notification Error:', error.message);
