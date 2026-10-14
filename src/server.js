@@ -1,4 +1,6 @@
 import 'dotenv/config';
+// Before everything else, so errors from the rest of start-up are reported.
+import Sentry from './config/sentry.js';
 import dns from 'dns';
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 import { fileURLToPath } from 'url';
@@ -264,6 +266,8 @@ app.get('/health', (req, res) => {
 
 // Error handling
 app.use(notFound);
+// Reports anything that reaches Express unhandled, then hands it on.
+Sentry.setupExpressErrorHandler(app);
 app.use(errorHandler);
 
 import os from 'os';
