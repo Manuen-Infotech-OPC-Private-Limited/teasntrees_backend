@@ -1,0 +1,60 @@
+name: Uptime
+
+# Every 10 minutes, from outside the VM, check the API and the website still
+# answer. When either does not, email connect@manuen.com.
+#
+# Repo secrets for the email: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
+# (and optionally SMTP_FROM). Until they are set, a failure still shows as a
+# failed run, which GitHub emails to the repo's admins.
+#
+# GitHub pauses scheduled workflows in a repo with no commits for 60 days;
+# re-enable it under Actions if that happens.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the API and the website
+        id: probe
+        run: |
+          down=""
+          for url in \
+            https://api.teasntrees.in/api/teasntrees/customer/categories \
+            https://teasntrees.in/ ; do
+            ok=""
+            for attempt in 1 2 3; do
+              code=$(curl -s -o /dev/null -m 20 -w '%{http_code}' "$url" || true)
+              [ "$code" = "200" ] && { ok=1; break; }
+              sleep 20
+            done
+            [ -z "$ok" ] && down="$down $url (last answer: ${code:-none})"
+          done
+          echo "down=$down" >> "$GITHUB_OUTPUT"
+          [ -z "$down" ] || { echo "DOWN:$down"; exit 1; }
+      - name: Email the alert
+        if: failure() && env.SMTP_HOST != ''
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASS }}
+          from: ${{ secrets.SMTP_FROM || secrets.SMTP_USER }}
+          to: connect@manuen.com
+          subject: 'DOWN: teasntrees.in is not answering'
+          body: |
+            Not answering after 3 tries:${{ steps.probe.outputs.down }}
+
+            Checked from GitHub Actions at ${{ github.event.repository.updated_at }}.
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            If the whole server is down: SSH in and run
+              Start-ScheduledTask -TaskName TnT-Backend
+              Start-ScheduledTask -TaskName TnT-Nginx
