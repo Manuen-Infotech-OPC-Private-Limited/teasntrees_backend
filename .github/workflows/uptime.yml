@@ -52,7 +52,7 @@ jobs:
           body: |
             Not answering after 3 tries:${{ steps.probe.outputs.down }}
 
-            Checked from GitHub Actions at ${{ github.event.repository.updated_at }}.
+            Checked from GitHub Actions.
             Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
             If the whole server is down: SSH in and run
