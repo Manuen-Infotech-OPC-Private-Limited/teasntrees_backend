@@ -12,6 +12,11 @@ export const verifyFirebaseToken = async (idToken) => {
         };
     }
 
+    // Like an Apple sign-in after the first one: Apple shares no email again.
+    if ((process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') && idToken === 'test-token-noemail') {
+        return { uid: 'test-apple-uid-noemail' };
+    }
+
     try {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         return decodedToken;

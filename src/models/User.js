@@ -115,6 +115,14 @@ const userSchema = new mongoose.Schema({
         select: false
     },
 
+    // The Firebase account a social sign-in (Google, Apple) belongs to. Apple
+    // shares the email only on the very first sign-in to an app, so email
+    // alone cannot find an Apple customer again; this can.
+    firebaseUid: {
+        type: String,
+        default: null
+    },
+
     // Set when the person deleted their own account in the app: the record is
     // deactivated and anonymised, not removed (services/accountDeletionService.js).
     deletedAt: {
@@ -147,6 +155,10 @@ userSchema.index({ location: '2dsphere' });
 userSchema.index(
     { mobile: 1, role: 1 },
     { unique: true, name: 'mobile_1_role_1_present', partialFilterExpression: { mobile: { $type: 'string' } } }
+);
+userSchema.index(
+    { firebaseUid: 1 },
+    { unique: true, name: 'firebaseUid_1_present', partialFilterExpression: { firebaseUid: { $type: 'string' } } }
 );
 userSchema.index(
     { email: 1, role: 1 },
