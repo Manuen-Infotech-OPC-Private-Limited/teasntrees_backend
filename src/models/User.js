@@ -136,8 +136,22 @@ const userSchema = new mongoose.Schema({
 });
 
 userSchema.index({ location: '2dsphere' });
-userSchema.index({ mobile: 1, role: 1 }, { unique: true, sparse: true });
-userSchema.index({ email: 1, role: 1 }, { unique: true, sparse: true });
+// One account per phone number (and per email) for each role - but only
+// when the field has a value. These were `sparse`, which on a compound index
+// still indexes a document whose mobile is null, because `role` is set: so
+// only ONE customer could ever be without a phone (or without an email). Every
+// later Google / Apple sign-up (no phone yet) and every later phone sign-up
+// (no email until the profile is completed) failed with E11000. Apple's
+// review rejected the app on exactly this, 2026-10-29.
+// Migrate an existing database with scripts/fix_user_unique_indexes.mjs.
+userSchema.index(
+    { mobile: 1, role: 1 },
+    { unique: true, name: 'mobile_1_role_1_present', partialFilterExpression: { mobile: { $type: 'string' } } }
+);
+userSchema.index(
+    { email: 1, role: 1 },
+    { unique: true, name: 'email_1_role_1_present', partialFilterExpression: { email: { $type: 'string' } } }
+);
 
 userSchema.methods.checkProfileComplete = function () {
     return !!(this.name && this.email && this.address && this.role);
