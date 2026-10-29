@@ -445,27 +445,24 @@ const googleLogin = async (req, res) => {
         // 1. Verify the Firebase token
         const decoded = await verifyFirebaseToken(idToken);
 
-        // The email comes from the verified token, never from the request body.
-        // It used to be read from the body, so anyone holding ANY valid Firebase
-        // token (their own phone sign-in, say) could name someone else's email
-        // and be handed that customer's account. This also makes the endpoint
-        // serve Sign in with Apple, whose Firebase token carries an email too
-        // (possibly Apple's private relay address).
-        const email = decoded.email;
-        if (!email) {
-            return res.status(400).json({
-                success: false,
-                message: 'This sign-in did not share an email address. Please try another way to sign in.'
-            });
-        }
+        // Identity comes from the verified token, never from the request body
+        // (reading the email from the body let anyone with any valid token name
+        // someone else's email and get their account).
+        //
+        // The Firebase uid is the key: Apple shares the email only on the very
+        // first sign-in to an app, so a retry - or anyone whose first attempt
+        // failed - arrives with no email at all, and used to be turned away.
+        const uid = decoded.uid;
+        const email = decoded.email ? decoded.email.toLowerCase() : null;
 
-        // 2. Find or create the user by email
+        // 2. Find the customer: by Firebase account, then by email
         // Use Customer discriminator so Customer.findById works in other controllers
-        let user = await Customer.findOne({ email: email.toLowerCase() });
+        let user = uid ? await Customer.findOne({ firebaseUid: uid }) : null;
+        if (!user && email) user = await Customer.findOne({ email });
 
         // Fallback: user exists but was created without Customer discriminator (legacy)
-        if (!user) {
-            const legacyUser = await User.findOne({ email: email.toLowerCase(), role: 'customer' });
+        if (!user && email) {
+            const legacyUser = await User.findOne({ email, role: 'customer' });
             if (legacyUser) {
                 // Heal: set kind to Customer so discriminator works going forward
                 await User.updateOne({ _id: legacyUser._id }, { $set: { kind: 'Customer' } });
@@ -479,15 +476,21 @@ const googleLogin = async (req, res) => {
         if (!user) {
             isNewUser = true;
             user = await Customer.create({
-                email: email.toLowerCase(),
-                name: name || email.split('@')[0],
+                email,
+                firebaseUid: uid || null,
+                name: name || (email ? email.split('@')[0] : null),
                 profileImage: photoURL || null,
                 role: 'customer'
-                // Note: mobile is NOT set here for Google users - they'll provide it in completeProfile
+                // Note: mobile (and, for Apple, maybe email) are NOT set here -
+                // the customer provides them in completeProfile
             });
 
-            logger.info('New customer registered via Google', { email, userId: user._id });
+            logger.info('New customer registered via social sign-in', { userId: user._id, hasEmail: !!email });
         } else {
+            // Remember the Firebase account, so the next sign-in finds them
+            // even without an email.
+            if (uid && !user.firebaseUid) user.firebaseUid = uid;
+
             // Update profile picture if provided and not yet set
             if (photoURL && !user.profileImage) {
                 user.profileImage = photoURL;

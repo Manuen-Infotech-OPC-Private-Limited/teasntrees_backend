@@ -29,9 +29,13 @@ const endSessions = (userId, now) =>
 
 // Without this the next sign-in with the same phone or Google account would
 // silently reuse the old Firebase identity. Never worth failing the deletion.
-const removeFirebaseUser = async ({ mobile, email }) => {
+const removeFirebaseUser = async ({ mobile, email, firebaseUid }) => {
     try {
         const auth = admin.auth();
+        if (firebaseUid) {
+            await auth.deleteUser(firebaseUid);
+            return;
+        }
         const found = mobile
             ? await auth.getUserByPhoneNumber(`+91${mobile}`)
             : email ? await auth.getUserByEmail(email) : null;
@@ -67,6 +71,7 @@ export const deleteCustomerAccount = async (userId) => {
 
     const now = new Date();
     const { mobile, email, _id } = customer;
+    const firebaseUid = customer.get('firebaseUid');
     const profileImage = customer.get('profileImage');
 
     await Customer.updateOne(
@@ -81,6 +86,7 @@ export const deleteCustomerAccount = async (userId) => {
                 wishlist: [],
                 profileImage: null,
                 fcmToken: null,
+                firebaseUid: null,
                 isActive: false,
                 isProfileComplete: false,
                 deletedAt: now
@@ -92,7 +98,7 @@ export const deleteCustomerAccount = async (userId) => {
     await endSessions(_id, now);
     await mongoose.model('Cart').deleteMany({ userId: _id });
     await removeFiles([profileImage]);
-    await removeFirebaseUser({ mobile, email });
+    await removeFirebaseUser({ mobile, email, firebaseUid });
 
     logger.info('Customer deleted their account', { userId: _id });
     return { id: _id, name: customer.name, mobile };
