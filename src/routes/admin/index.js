@@ -21,6 +21,13 @@ import payoutRoutes from './payoutRoutes.js';
 import managerRoutes from './managerRoutes.js';
 import contactRoutes from './contactRoutes.js';
 import couponRoutes from './couponRoutes.js';
+import bannerRoutes from './bannerRoutes.js';
+import vendorRoutes from './vendorRoutes.js';
+import purchaseRoutes from './purchaseRoutes.js';
+import salesRoutes from './salesRoutes.js';
+import reportRoutes from './reportRoutes.js';
+import expenseRoutes from './expenseRoutes.js';
+import exportRoutes from './exportRoutes.js';
 
 const router = express.Router({ mergeParams: true });
 
@@ -47,5 +54,12 @@ router.use('/payouts', payoutRoutes);
 router.use('/managers', managerRoutes);
 router.use('/contacts', contactRoutes);
 router.use('/coupons', couponRoutes);
+router.use('/banners', bannerRoutes);
+router.use('/vendors', vendorRoutes);
+router.use('/purchases', purchaseRoutes);
+router.use('/sales', salesRoutes);
+router.use('/reports', reportRoutes);
+router.use('/expenses', expenseRoutes);
+router.use('/export', exportRoutes);
 
 export default router;

@@ -13,7 +13,7 @@ import { getDistance } from "../../utils/geoUtils.js";
 ========================================================= */
 export const getAllOrders = async (req, res) => {
     try {
-        const { status, customerId, startDate, endDate } = req.query;
+        const { status, customerId, startDate, endDate, search } = req.query;
         const brand = req.activeBrand;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
@@ -30,10 +30,36 @@ export const getAllOrders = async (req, res) => {
         if (customerId) query.customerId = customerId;
         if (brand) query.brand = brand;
 
+        if (search) {
+            const s = search.trim();
+            const matchingUsers = await User.find({
+                $or: [
+                    { name: { $regex: s, $options: 'i' } },
+                    { mobile: { $regex: s, $options: 'i' } }
+                ]
+            }).select('_id');
+            const userIds = matchingUsers.map(u => u._id);
+
+            query.$or = [
+                { orderNumber: { $regex: s, $options: 'i' } },
+                { customerId: { $in: userIds } },
+                { 'deliveryAddress.name': { $regex: s, $options: 'i' } },
+                { 'deliveryAddress.phone': { $regex: s, $options: 'i' } }
+            ];
+        }
+
         if (startDate || endDate) {
             query.createdAt = {};
-            if (startDate) query.createdAt.$gte = new Date(startDate);
-            if (endDate) query.createdAt.$lte = new Date(endDate);
+            if (startDate) {
+                const start = new Date(startDate);
+                start.setHours(0, 0, 0, 0);
+                query.createdAt.$gte = start;
+            }
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                query.createdAt.$lte = end;
+            }
         }
 
         const orders = await Order.find(query)

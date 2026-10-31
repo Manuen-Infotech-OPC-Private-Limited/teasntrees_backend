@@ -12,7 +12,7 @@ const PUBLIC_BASE_URL = process.env.STORAGE_PUBLIC_BASE_URL || 'http://localhost
  * Normalizes a folder name
  */
 const getRootForFolder = (folder) => {
-    const publicFolders = ['products', 'categories', 'profiles', 'promotions', 'brands', 'teasntrees'];
+    const publicFolders = ['products', 'categories', 'profiles', 'promotions', 'brands', 'teasntrees', 'banners'];
     return publicFolders.includes(folder) ? PUBLIC_ROOT : PRIVATE_ROOT;
 };
 
