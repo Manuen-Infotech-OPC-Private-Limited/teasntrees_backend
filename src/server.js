@@ -38,6 +38,7 @@ import customerUploadRoutes from './routes/customer/uploadRoutes.js';
 import customerContactRoutes from './routes/customer/contactRoutes.js';
 import customerPaymentRoutes from './routes/customer/paymentRoutes.js';
 import customerCouponRoutes from './routes/customer/couponRoutes.js';
+import customerBannerRoutes from './routes/customer/bannerRoutes.js';
 import customerStatusRoutes from './routes/customer/statusRoutes.js';
 
 import adminAuthRoutes from './routes/admin/authRoutes.js';
@@ -79,7 +80,10 @@ const checkOrigin = (origin, callback) => {
         // Normalize both to compare without www. prefix
         const originBase = origin.replace(/^https?:\/\/(www\.)?/, '');
         const allowedBase = allowed.replace(/^https?:\/\/(www\.)?/, '');
-        return originBase === allowedBase;
+        if (originBase === allowedBase) return true;
+        const originLocal = originBase.replace('127.0.0.1', 'localhost');
+        const allowedLocal = allowedBase.replace('127.0.0.1', 'localhost');
+        return originLocal === allowedLocal;
     });
 
     if (isAllowed) {
@@ -96,7 +100,7 @@ app.use(cors({
     origin: checkOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-client-type'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-client-type', 'x-brand', 'X-Brand', 'x-idempotency-key', 'X-Idempotency-Key'],
     optionsSuccessStatus: 200
 }));
 
@@ -152,12 +156,12 @@ import { riderAssignmentService } from './services/riderAssignmentService.js';
 riderAssignmentService.setIo(io);
 
 // Watches riders who accepted an order and then stopped moving toward the store
-// or the customer. Nothing looked at a delivery after acceptance before this —
+// or the customer. Nothing looked at a delivery after acceptance before this â€”
 // the escalation monitor only covers orders still waiting for a rider.
 import { deliveryWatchdogService } from './services/deliveryWatchdogService.js';
 deliveryWatchdogService.initialize(io);
 
-// Flags, then a day later cancels, orders that nobody ever finished — the
+// Flags, then a day later cancels, orders that nobody ever finished â€” the
 // watchdog above only alerts; it never ends an order.
 import { staleOrderService } from './services/staleOrderService.js';
 staleOrderService.initialize(io);
@@ -231,6 +235,7 @@ customerApiRouter.use('/upload', customerUploadRoutes);
 customerApiRouter.use('/contact', customerContactRoutes);
 customerApiRouter.use('/payments', customerPaymentRoutes);
 customerApiRouter.use('/coupons', customerCouponRoutes);
+customerApiRouter.use('/banners', customerBannerRoutes);
 customerApiRouter.use('/status', customerStatusRoutes);
 
 // Finally mount the customer sub-router to the main app
@@ -286,7 +291,7 @@ function getLanIP() {
 
 // Start server
 // const PORT = process.env.PORT || 5000;
-const HOST = '0.0.0.0';
+const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '::');
 const PORT = process.env.PORT || 5000;
 const LAN_IP = getLanIP();
 

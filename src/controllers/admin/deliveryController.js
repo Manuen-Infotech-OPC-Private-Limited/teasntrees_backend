@@ -1,6 +1,7 @@
 import Delivery from '../../models/Delivery.js';
 import Order from '../../models/Order.js';
 import Rider from '../../models/Rider.js';
+import User from '../../models/User.js';
 import logger from '../../config/logger.js';
 import activityLogService from '../../services/activityLogService.js';
 import { riderAssignmentService } from '../../services/riderAssignmentService.js';
@@ -11,7 +12,7 @@ import { SOCKET_ROOMS } from '../../sockets/socketEvents.js';
 ----------------------------------- */
 export const getAllDeliveries = async (req, res) => {
     try {
-        const { status, riderId, startDate, endDate } = req.query;
+        const { status, riderId, startDate, endDate, search } = req.query;
         const brand = req.activeBrand;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
@@ -22,10 +23,43 @@ export const getAllDeliveries = async (req, res) => {
         if (riderId) query.riderId = riderId;
         if (brand) query.brand = brand;
 
+        if (search) {
+            const s = search.trim();
+            const [matchingOrders, matchingRiders, matchingUsers] = await Promise.all([
+                Order.find({ orderNumber: { $regex: s, $options: 'i' } }).select('_id'),
+                Rider.find({
+                    $or: [
+                        { name: { $regex: s, $options: 'i' } },
+                        { mobile: { $regex: s, $options: 'i' } }
+                    ]
+                }).select('_id'),
+                User.find({
+                    $or: [
+                        { name: { $regex: s, $options: 'i' } },
+                        { mobile: { $regex: s, $options: 'i' } }
+                    ]
+                }).select('_id')
+            ]);
+
+            query.$or = [
+                { orderId: { $in: matchingOrders.map(o => o._id) } },
+                { riderId: { $in: matchingRiders.map(r => r._id) } },
+                { customerId: { $in: matchingUsers.map(u => u._id) } }
+            ];
+        }
+
         if (startDate || endDate) {
             query.createdAt = {};
-            if (startDate) query.createdAt.$gte = new Date(startDate);
-            if (endDate) query.createdAt.$lte = new Date(endDate);
+            if (startDate) {
+                const start = new Date(startDate);
+                start.setHours(0, 0, 0, 0);
+                query.createdAt.$gte = start;
+            }
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                query.createdAt.$lte = end;
+            }
         }
 
         const deliveries = await Delivery.find(query)

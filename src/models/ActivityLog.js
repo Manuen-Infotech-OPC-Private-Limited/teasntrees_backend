@@ -1,5 +1,54 @@
 import mongoose from 'mongoose';
 
+export const ACTIVITY_ACTIONS = [
+    'create',
+    'update',
+    'delete',
+    'activate',
+    'deactivate',
+    'login',
+    'logout',
+    'assign',
+    'cancel',
+    'approve',
+    'reject',
+    'accept',
+    'update_status',
+    'upload',
+    'process',
+    'complete_profile',
+    'accept_delivery',
+    'reject_delivery',
+    'upload_proof',
+    'toggle_availability',
+    'update_payment',
+    'payment',
+    'cancel_order',
+    'assign_rider',
+    'firebase_login',
+    'google_login'
+];
+
+export const ACTIVITY_RESOURCES = [
+    'user',
+    'product',
+    'category',
+    'order',
+    'delivery',
+    'settings',
+    'auth',
+    'image',
+    'payout',
+    'review',
+    'rider',
+    'manager',
+    'customer',
+    'purchase',
+    'expense',
+    'vendor',
+    'report'
+];
+
 const activityLogSchema = new mongoose.Schema({
     admin: {
         type: mongoose.Schema.Types.ObjectId,
@@ -13,24 +62,12 @@ const activityLogSchema = new mongoose.Schema({
     action: {
         type: String,
         required: true,
-        enum: [
-            'create', 'update', 'delete',
-            'activate', 'deactivate',
-            'login', 'logout',
-            'assign', 'cancel',
-            'approve', 'reject',
-            'accept', 'update_status',
-            'upload', 'process',
-            'complete_profile',
-            'accept_delivery', 'reject_delivery',
-            'upload_proof', 'toggle_availability',
-            'update_payment', 'cancel_order', 'assign_rider', 'firebase_login', 'google_login'
-        ]
+        enum: ACTIVITY_ACTIONS
     },
     resource: {
         type: String,
         required: true,
-        enum: ['user', 'product', 'category', 'order', 'delivery', 'settings', 'auth', 'image', 'payout', 'review', 'rider', 'manager', 'customer']
+        enum: ACTIVITY_RESOURCES
     },
     resourceId: {
         type: mongoose.Schema.Types.ObjectId
@@ -39,13 +76,19 @@ const activityLogSchema = new mongoose.Schema({
         type: Object,
         default: {}
     },
-    ipAddress: String,
-    userAgent: String,
+    ipAddress: {
+        type: String
+    },
+    userAgent: {
+        type: String
+    },
     success: {
         type: Boolean,
         default: true
     },
-    errorMessage: String
+    errorMessage: {
+        type: String
+    }
 }, {
     timestamps: true
 });

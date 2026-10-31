@@ -1,5 +1,4 @@
 // Middleware to handle multi-brand routing via URL params
-// Middleware to handle multi-brand routing via URL params
 // Extract :brand from URL, validate and set req.activeBrand
 
 export const brandMiddleware = (req, res, next) => {

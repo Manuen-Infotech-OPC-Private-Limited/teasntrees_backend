@@ -3,7 +3,8 @@ import Coupon from '../../models/Coupon.js';
 // GET /admin/coupons — List all coupons
 export const getAllCoupons = async (req, res) => {
     try {
-        const coupons = await Coupon.find().sort({ createdAt: -1 }).lean();
+        const filter = req.activeBrand ? { $or: [{ brand: req.activeBrand }, { brand: null }] } : {};
+        const coupons = await Coupon.find(filter).sort({ createdAt: -1 }).lean();
         res.json({ success: true, data: coupons });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Failed to fetch coupons' });
@@ -53,7 +54,7 @@ export const createCoupon = async (req, res) => {
             discountAmount: Number(discountAmount),
             maxDiscount: maxDiscount != null ? Number(maxDiscount) : null,
             minOrderValue: Number(minOrderValue) || 0,
-            brand: brand || null,
+            brand: brand || req.activeBrand || null,
             usageLimit: usageLimit != null ? Number(usageLimit) : null,
             perUserLimit: perUserLimit != null ? Number(perUserLimit) : 1,
             firstOrderOnly: Boolean(firstOrderOnly),
