@@ -89,15 +89,22 @@ export const getSalesTrends = async (req, res) => {
         const brand = req.activeBrand || req.params.brand || 'teasntrees';
         const { startDate, endDate, groupBy = 'day' } = req.query;
 
-        // Default to last 30 days if no date range specified
-        let start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        let end = endDate ? new Date(endDate) : new Date();
+        // Default to the last 30 days only when the caller provides no date range.
+        const start = startDate
+            ? new Date(startDate)
+            : endDate
+                ? null
+                : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const end = endDate ? new Date(endDate) : new Date();
         end.setHours(23, 59, 59, 999);
+
+        const createdAt = { $lte: end };
+        if (start) createdAt.$gte = start;
 
         const matchFilter = {
             brand,
             status: { $nin: ['cancelled'] },
-            createdAt: { $gte: start, $lte: end }
+            createdAt
         };
 
         const dateFormat = groupBy === 'month' ? '%Y-%m' : '%Y-%m-%d';
@@ -350,4 +357,3 @@ export const exportSalesCSV = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-
